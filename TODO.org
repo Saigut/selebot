@@ -1,0 +1,2 @@
+* Arrange Socket related C functions to be used.
+* Adjust needed code to run as expected.

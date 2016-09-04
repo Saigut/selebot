@@ -11,6 +11,7 @@ Public Domain
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <stdio.h>
+#include <unistd.h>
 
 /* c_write attempts to write the entire buffer, pushing through
    interrupts, socket delays, and partial-buffer writes */
@@ -67,7 +68,7 @@ int do_bind(int s, char *name) {
     (void) strcpy(sun.sun_path, name);
     length = sizeof(sun.sun_family) + sizeof(sun.sun_path);
 
-    return bind(s, &sun, length);
+    return bind(s, (struct sockaddr *)&sun, length);
 }
 
 /* do_accept accepts a connection on socket s */
@@ -77,7 +78,7 @@ int do_accept(int s) {
 
     length = sizeof(sun.sun_family) + sizeof(sun.sun_path);
 
-    return accept(s, &sun, &length);
+    return accept(s, (struct sockaddr *)&sun, &length);
 }
 
 /* do_connect initiates a socket connection */
@@ -89,7 +90,7 @@ int do_connect(int s, char *name) {
     (void) strcpy(sun.sun_path, name);
     length = sizeof(sun.sun_family) + sizeof(sun.sun_path);
 
-    return connect(s, &sun, length);
+    return connect(s, (struct sockaddr *)&sun, length);
 }
 
 /* get_error returns the operating system's error status */
