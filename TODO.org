@@ -1,2 +1,2 @@
-* Arrange Socket related C functions to be used.
-* Adjust needed code to run as expected.
+* TODO Arrange Socket related C functions to be used.
+* TODO Adjust needed code to run as expected.
