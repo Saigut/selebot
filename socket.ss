@@ -73,7 +73,7 @@
     string))
 
 (define c-read
-  (foreign-procedure "c_read" (integer-32 string integer-32)
+  (foreign-procedure "c_read" (integer-32 u8* integer-32)
     integer-32))
 
 (define c-write

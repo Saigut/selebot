@@ -35,9 +35,16 @@ int c_write(int fd, char *buf, unsigned n) {
 int c_read(int fd, char *buf, unsigned n) {
     int i;
 
+    char in_buf[1024];
+    memset(in_buf, 0, 1024);
+    
     for (;;) {
         i = read(fd, buf, n);
-        if (i >= 0) return i;
+        if (i >= 0)
+	{
+	    printf("%s\n", buf);
+	    return i;
+	}
         if (errno != EAGAIN && errno != EINTR) return -1;
     }
 }
