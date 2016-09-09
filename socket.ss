@@ -88,6 +88,10 @@
   (foreign-procedure "do_socket" ()
     integer-32))
 
+;; (define mod-chez-str
+;;   (foreign-procedure "mod_chez_str" (string)
+;; 		     void))
+
 ;;; higher-level routines
 
 (define dodup
