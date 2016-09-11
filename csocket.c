@@ -5,7 +5,8 @@ Public Domain
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/un.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
@@ -35,16 +36,9 @@ int c_write(int fd, char *buf, unsigned n) {
 int c_read(int fd, char *buf, unsigned n) {
     int i;
 
-    char in_buf[1024];
-    memset(in_buf, 0, 1024);
-    
     for (;;) {
         i = read(fd, buf, n);
-        if (i >= 0)
-	{
-	    printf("%s\n", buf);
-	    return i;
-	}
+        if (i >= 0) return i;
         if (errno != EAGAIN && errno != EINTR) return -1;
     }
 }
@@ -63,41 +57,40 @@ int bytes_ready(int fd) {
 /* do_socket() creates a new AF_UNIX socket */
 int do_socket(void) {
 
-    return socket(AF_UNIX, SOCK_STREAM, 0);
+    return socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
 /* do_bind(s, name) binds name to the socket s */
-int do_bind(int s, char *name) {
-    struct sockaddr_un sun;
-    int length;
+int do_bind(int s, int port) {
+    int on = 1;
+    
+    if((setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0) {  
+	return -1;
+    }
+    
+    struct sockaddr_in sin;
 
-    sun.sun_family = AF_UNIX;
-    (void) strcpy(sun.sun_path, name);
-    length = sizeof(sun.sun_family) + sizeof(sun.sun_path);
+    sin.sin_family = AF_INET;
+    sin.sin_addr.s_addr = htonl(INADDR_ANY);
+    sin.sin_port = htons(port);
 
-    return bind(s, (struct sockaddr *)&sun, length);
+    return bind(s, (struct sockaddr *)&sin, sizeof(sin));
 }
 
 /* do_accept accepts a connection on socket s */
 int do_accept(int s) {
-    struct sockaddr_un sun;
-    int length;
-
-    length = sizeof(sun.sun_family) + sizeof(sun.sun_path);
-
-    return accept(s, (struct sockaddr *)&sun, &length);
+     return accept(s, NULL, NULL);
 }
 
 /* do_connect initiates a socket connection */
-int do_connect(int s, char *name) {
-    struct sockaddr_un sun;
-    int length;
+int do_connect(int s, char *ip, int port) {
+    struct sockaddr_in sin;
 
-    sun.sun_family = AF_UNIX;
-    (void) strcpy(sun.sun_path, name);
-    length = sizeof(sun.sun_family) + sizeof(sun.sun_path);
+    sin.sin_family = AF_INET;
+    if (inet_pton(AF_INET, ip, &sin.sin_addr) != 1) return -1;
+    sin.sin_port = htons(port);
 
-    return connect(s, (struct sockaddr *)&sun, length);
+    return connect(s, (struct sockaddr *)&sin, sizeof(sin));
 }
 
 /* get_error returns the operating system's error status */

@@ -1,0 +1,5 @@
+(load "socket.ss")
+(define client-sd (setup-client-socket "127.0.0.1" 6101))
+(do () (#f)
+  (let ([str (get-line (current-input-port))])
+    (c-write client-sd str (string-length str))))
