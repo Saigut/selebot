@@ -1,5 +1,6 @@
 (import (rnrs)
-	(spells string-utils))
+	(spells string-utils)
+	(server-lib))
 
 (load "socket.ss")
 
@@ -27,6 +28,9 @@
 					      ""))
     (define header-line (get-line sip))
     (define tokens (string-split header-line #\space))
+    (define header-buf (make-bytevector 4096 0))
+    (define buf-transcoder (make-transcoder (utf-8-codec) 'crlf 'replace))
+    (define buf-input-port (open-bytevector-input-port header-buf buf-transcoder))
     (pretty-print (substring header-line
 			     0
 			     (- (string-length header-line) 1)))
@@ -61,7 +65,7 @@
       (do ([break #f] [readin 0])
 	  (break
 	   (printf "Client quit. sd: ~a~%~%" (client-sd)))
-        (set! readin (c-read (client-sd) buf (bytevector-length buf)))
+        (set! readin (c-read (client-sd) buf 0 (bytevector-length buf)))
         (if (> readin 0)
 	    (let ([vec (make-bytevector readin)] [readin-str #f])
 	      (bytevector-copy! buf 0 vec 0 readin)

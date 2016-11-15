@@ -16,9 +16,10 @@ Public Domain
 
 /* c_write attempts to write the entire buffer, pushing through
    interrupts, socket delays, and partial-buffer writes */
-int c_write(int fd, char *buf, unsigned n) {
-    unsigned i, m;
+int c_write(int fd, char *buf, ssize_t start, ssize_t n) {
+    ssize_t i, m;
 
+    buf += start;
     m = n;
     while (m > 0) {
         if ((i = write(fd, buf, m)) < 0) {
@@ -33,9 +34,10 @@ int c_write(int fd, char *buf, unsigned n) {
 }
 
 /* c_read pushes through interrupts and socket delays */
-int c_read(int fd, char *buf, unsigned n) {
+int c_read(int fd, char *buf, size_t start, size_t n) {
     int i;
 
+    buf += start;
     for (;;) {
         i = read(fd, buf, n);
         if (i >= 0) return i;

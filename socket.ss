@@ -19,74 +19,74 @@
 ;;; basic C-library stuff
 
 (define close
-  (foreign-procedure "close" (integer-32)
-    integer-32))
+  (foreign-procedure "close" (int)
+    int))
 
 (define dup
-  (foreign-procedure "dup" (integer-32)
-    integer-32))
+  (foreign-procedure "dup" (int)
+    int))
 
 (define execl4
   (let ((execl-help
          (foreign-procedure "execl"
-           (string string string string integer-32)
-           integer-32)))
+           (string string string string int)
+           int)))
     (lambda (s1 s2 s3 s4)
       (execl-help s1 s2 s3 s4 0))))
 
 (define fork
   (foreign-procedure "fork" ()
-    integer-32))
+    int))
 
 (define kill
-  (foreign-procedure "kill" (integer-32 integer-32)
-    integer-32))
+  (foreign-procedure "kill" (int int)
+    int))
 
 (define listen
-  (foreign-procedure "listen" (integer-32 integer-32)
-    integer-32))
+  (foreign-procedure "listen" (int int)
+    int))
 
 (define tmpnam
-  (foreign-procedure "tmpnam" (integer-32)
+  (foreign-procedure "tmpnam" (int)
     string))
 
 (define unlink
   (foreign-procedure "unlink" (string)
-    integer-32))
+    int))
 
 ;;; routines defined in csocket.c
 
 (define accept
-  (foreign-procedure "do_accept" (integer-32)
-    integer-32))
+  (foreign-procedure "do_accept" (int)
+    int))
 
 (define bytes-ready?
-  (foreign-procedure "bytes_ready" (integer-32)
+  (foreign-procedure "bytes_ready" (int)
     boolean))
 
 (define bind
-  (foreign-procedure "do_bind" (integer-32 integer-32)
-    integer-32))
+  (foreign-procedure "do_bind" (int int)
+    int))
 
 (define c-error
   (foreign-procedure "get_error" ()
     string))
 
 (define c-read
-  (foreign-procedure "c_read" (integer-32 u8* integer-32)
-    integer-32))
+  (foreign-procedure "c_read" (int u8* size_t size_t)
+    ssize_t))
 
 (define c-write
-  (foreign-procedure "c_write" (integer-32 string integer-32)
-    integer-32))
+  (foreign-procedure "c_write" (int u8* size_t ssize_t)
+    ssize_t))
 
 (define connect
-  (foreign-procedure "do_connect" (integer-32 string integer-32)
-    integer-32))
+  (foreign-procedure "do_connect" (int string int)
+    int))
 
 (define socket
   (foreign-procedure "do_socket" ()
-    integer-32))
+    int))
 
 ;;; higher-level routines
 
