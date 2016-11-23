@@ -18,7 +18,7 @@ cd ..
 mv chez-srfi_repo/srfi ./
 rm -rf chez-srfi_repo
 ```
-Then you can run server:
+Then you can run the server:
 ```
 scheme ./server.ss
 ```
