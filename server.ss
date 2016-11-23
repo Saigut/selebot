@@ -2,7 +2,8 @@
 	(chezscheme)
 	(spells string-utils)
 	(only (srfi :13) string-index
-                string-trim-both)
+	      string-trim-both)
+	(srfi :19)
 	(server-lib))
 
 (load "socket.ss")
@@ -19,7 +20,8 @@
   
   (nongenerative http-request-r-uuid-001))
 
-
+(define (current-seconds)
+  (time-second (current-time)))
 
 (define server-sd (make-parameter -1))
 (define client-sd (make-thread-parameter -1))
@@ -41,14 +43,113 @@
 	      (conn-active #f))
       readin)))
 
+(define (make-w! socket)
+  (lambda (bv start n)
+    (printf "want write ~a chars~%" n)
+    (let ([sendout (c-write socket bv start n)])
+	  (when (< sendout 0)
+		(conn-active #f))
+	  (printf "wrote ~a chars~%" sendout)
+	  sendout)))
+
 (define (make-close socket)
   (lambda ()
-    (check 'close (close socket))))
+    (close socket)
+    (conn-active #f)))
 
-(define (deal-header request)
-  (if (string-ci=? (http-request-r-method request) "get")
-      (printf "GET~%")
-      (printf "Not GET~%")))
+(define (response-404 t-port)
+  (put-string t-port (string-append "HTTP/1.1 404 Not Found\r\f"
+				  "Server: selebot\r\f"
+				  ;;"Data: " (date-str (gmt-date (current-seconds))) "\r\f"
+				  "Content-Type: text/html; charset=utf-8
+\r\f"))
+  (flush-output-port t-port)
+  (close-port t-port)
+  (printf "response did~%"))
+
+(define (deal-method-options request port)
+  (printf "Dealing with Method OPTIONS~%")
+  (response-404 port))
+
+(define (deal-method-get request port)
+  (printf "Dealing with Method GET~%")
+  (response-404 port))
+
+(define (deal-method-head request port)
+  (printf "Dealing with Method HEAD~%")
+  (response-404 port))
+
+(define (deal-method-post request port)
+  (printf "Dealing with Method POST~%")
+  (response-404 port))
+
+(define (deal-method-put request port)
+  (printf "Dealing with Method PUT~%")
+  (response-404 port))
+
+(define (deal-method-delete request port)
+  (printf "Dealing with Method DELETE~%")
+  (response-404 port))
+
+(define (deal-method-trace request port)
+  (printf "Dealing with Method TRACE~%")
+  (response-404 port))
+
+(define (deal-method-connect request port)
+  (printf "Dealing with Method CONNECT~%")
+  (response-404 port))
+
+(define (deal-method-unknown request port)
+  (printf "Dealing with Method UNKNOWN~%")
+  (response-404 port))
+
+(define (deal-header request textual-port)
+
+  (let ([method (http-request-r-method request)])
+		(cond
+		 [(string=? method "OPTIONS")
+		  
+		  (printf "~s~%" method)
+		  (deal-method-options request textual-port)]
+		 
+		 [(string=? method "GET")
+		  
+		  (printf "~s~%" method)
+		  (deal-method-get request textual-port)]
+		 
+		 [(string=? method "HEAD")
+		  
+		  (printf "~s~%" method)
+		  (deal-method-head request textual-port)]
+		 
+		 [(string=? method "POST")
+		  
+		  (printf "~s~%" method)
+		  (deal-method-post request textual-port)]
+		 
+		 [(string=? method "PUT")
+		  
+		  (printf "~s~%" method)
+		  (deal-method-put request textual-port)]
+		 
+		 [(string=? method "DELETE")
+		  
+		  (printf "~s~%" method)
+		  (deal-method-delete request textual-port)]
+		 
+		 [(string=? method "TRACE")
+		  
+		  (printf "~s~%" method)
+		  (deal-method-trace request textual-port)]
+		 
+		 [(string=? method "CONNECT")
+		  
+		  (printf "~s~%" method)
+		  (deal-method-connect request textual-port)]
+		 
+		 [else
+		  (printf "Unknown Method: ~s~%" method)
+		  (deal-method-unknown request textual-port)])))
 
 (define deal-req
   (lambda (c-sd)
@@ -60,19 +161,21 @@
 					      #f))
     (define buf-transcoder (make-transcoder (utf-8-codec) 'crlf 'raise))
 
-    (define binary-input-port (make-custom-binary-input-port "network input port"
-							     (make-r! c-sd)
-							     #f
-							     #f
-							     (make-close  c-sd)))
-    (define textual-input-port (transcoded-port binary-input-port buf-transcoder))
-    (define header-line (get-line textual-input-port))
+    (define binary-input/output-port (make-custom-binary-input/output-port "network input port"
+									   (make-r! c-sd)
+									   (make-w! c-sd)
+									   #f
+									   #f
+									   (make-close  c-sd)))
+    (define textual-input/output-port (transcoded-port binary-input/output-port buf-transcoder))
+    (define header-line #f)
 
     (define header-tokens #f)
 
     (define ret #f)
 
     
+    (set! header-line (get-line textual-input/output-port))
     
     (if (not (eof-object? header-line))
 	(let ()
@@ -96,12 +199,12 @@
 			(http-request-r-data-set! recv-request #f)
 			)))
 		
-		(do ([line (get-line textual-input-port)]
+		(do ([line (get-line textual-input/output-port)]
 		     [line-len 0]
 		     [line-tokens #f]
 		     [break #f])
 		    ((or (eof-object? line) break))
-		  (set! line (get-line textual-input-port))
+		  (set! line (get-line textual-input/output-port))
 		  (set! line-len (string-length line))
 		  (pretty-print line)
 		  (set! line-tokens (string-split line #\: 2))
@@ -122,7 +225,7 @@
 		(printf "~%")
 
 		(if ret
-		    (deal-header recv-request)))))))
+		    (deal-header recv-request textual-input/output-port)))))))
 
 
 (define client-conn
@@ -142,4 +245,5 @@
       (let ()
 	(printf "New client connected. sd: ~a~%~%" (client-sd))
 	(conn-active #t)
-	(fork-thread client-conn))))
+	(parameterize ([current-exception-state (create-exception-state default-exception-handler)])
+		      (fork-thread client-conn)))))
