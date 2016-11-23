@@ -1,8 +1,9 @@
 # selebot
 
-Firstlly, install the Chez Scheme. https://github.com/cisco/ChezScheme
+* Firstlly, install the Chez Scheme: https://github.com/cisco/ChezScheme
 
-Go into this selebot repo, then:
+* Go into this selebot repo, then:
+
 ```
 gcc -fPIC -shared -o csocket.so ./csocket.c
 
