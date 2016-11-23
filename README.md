@@ -8,17 +8,14 @@ gcc -fPIC -shared -o csocket.so ./csocket.c
 
 git clone --depth 1 https://github.com/rotty/spells spells_repo
 mv spells_repo/spells ./
-rm -r spells_repo
+rm -rf spells_repo
 
 git clone --depth 1 https://github.com/fedeinthemix/chez-srfi chez-srfi_repo
 cd chez-srfi_repo
-```
-Change CHEZ variable of chez-srfi repo's Makefile to `scheme`
-```
-make build
+make build CHEZ=scheme
 cd ..
 mv chez-srfi_repo/srfi ./
-rm -r chez-srfi_repo
+rm -rf chez-srfi_repo
 ```
 Then you can run server:
 ```
