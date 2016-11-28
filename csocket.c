@@ -13,6 +13,7 @@ Public Domain
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <time.h>
 
 /* c_write attempts to write the entire buffer, pushing through
    interrupts, socket delays, and partial-buffer writes */
@@ -24,7 +25,7 @@ int c_write(int fd, char *buf, ssize_t start, ssize_t n) {
     while (m > 0) {
         if ((i = write(fd, buf, m)) < 0) {
             if (errno != EAGAIN && errno != EINTR)
-                return i;
+                return 0;
         } else {
             m -= i;
             buf += i;
@@ -37,11 +38,19 @@ int c_write(int fd, char *buf, ssize_t start, ssize_t n) {
 int c_read(int fd, char *buf, size_t start, size_t n) {
     int i;
 
+    int issue_count = 0;
+    
     buf += start;
     for (;;) {
         i = read(fd, buf, n);
         if (i >= 0) return i;
-        if (errno != EAGAIN && errno != EINTR) return -1;
+	if ((issue_count < 3) && (errno == EAGAIN || errno == EINTR)) {
+	    printf("Issue occured while reading. Trying again. Errno: %d\n", errno);
+	    issue_count++;
+	} else  {
+	    printf("Read errno: %d\n", errno);
+	    return 0;
+	}
     }
 }
 
@@ -59,7 +68,30 @@ int bytes_ready(int fd) {
 /* do_socket() creates a new AF_UNIX socket */
 int do_socket(void) {
 
-    return socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    if (sock < 0) {
+	printf("Failed to create socket. Errno: %d\n", errno);
+	return -1;
+    }
+    
+    
+    return sock;
+}
+
+int setsock_recvtimeout(int sock, int ms) {
+
+    int ret;
+
+    struct timeval ti;
+    ti.tv_sec = ms / 1000;
+    ti.tv_usec = (ms % 1000) * 1000;
+    
+    ret = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &ti, sizeof(ti));
+    if (ret < 0) {
+	printf("Failed to set recv timeout. Errno: %d\n", errno);
+	return -1;
+    }
 }
 
 /* do_bind(s, name) binds name to the socket s */

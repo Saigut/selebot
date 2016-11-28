@@ -7,6 +7,33 @@
 ;;; programs that use sockets.
 
 ;;; Requires csocket.so, built from csocket.c.
+#|(library (socket)
+  (export close
+	  dup
+	  execl4
+	  fork
+	  kill
+	  listen
+	  tmpnam
+	  unlink
+	  accept
+	  bytes-ready?
+	  bind
+	  c-error
+	  c-read
+	  c-write
+	  connect
+	  socket
+	  dodup
+	  dofork
+	  setup-server-socket
+	  setup-client-socket
+	  accept-socket
+	  check)
+  (import (chezscheme))|#
+
+
+
 (load-shared-object "./csocket.so")
 
 ;;; Requires from C library:
@@ -88,6 +115,10 @@
   (foreign-procedure "do_socket" ()
     int))
 
+(define setsock-recvtimeout
+   (foreign-procedure "setsock_recvtimeout" (int int)
+    int))
+
 ;;; higher-level routines
 
 (define dodup
@@ -137,4 +168,4 @@
         (error who (c-error))
         x)))
 
-#!eof
+;;)
