@@ -39,6 +39,8 @@ int c_read(int fd, char *buf, size_t start, size_t n) {
     int i;
 
     int issue_count = 0;
+
+    setbuf(stdout, NULL);
     
     buf += start;
     while (1) {
@@ -50,10 +52,10 @@ int c_read(int fd, char *buf, size_t start, size_t n) {
 	}
 	
 	if ((issue_count < 3) && (errno == EAGAIN || errno == EINTR)) {
-	    printf("Issue occured while reading. Trying again. Errno: %d\n", errno);
+	    //printf("%d: Issue occured while reading. Trying again. Errno: %d\n", fd, errno);
 	    issue_count++;
 	} else  {
-	    printf("Read errno: %d\n", errno);
+	    //printf("%d: Read errno: %d\n", fd, errno);
 	    return 0;
 	}
     }
