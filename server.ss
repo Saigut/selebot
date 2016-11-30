@@ -23,8 +23,10 @@
 
 ;;; Global Variables
 ;; Transcoders
-(define none-transcoder (make-transcoder (utf-8-codec) 'none 'raise))
-(define crlf-transcoder (make-transcoder (utf-8-codec) 'crlf 'raise))
+(define none-transcoder (make-transcoder (utf-8-codec) 'none 'replace))
+(define crlf-transcoder (make-transcoder (utf-8-codec)
+					 (eol-style crlf)
+					 (error-handling-mode replace)))
 
 ;; Special characters
 (define *line-feed* #x0a)
@@ -39,20 +41,42 @@
 (define cgis (make-hashtable string-hash string=?))
 
 ;;; Utils
+(define (get-line-bytevector-old binary-input-port)
+  (if (not (eof-object? (lookahead-u8 binary-input-port)))
+      (u8-list->bytevector
+       (let loop ()
+	 (let ([byte (get-u8 binary-input-port)])
+	   (cond
+	    [(or (eof-object? byte) (= byte *line-feed*))
+	     '()]
+	    [(= byte *carriage-return*)
+	     (get-u8 binary-input-port)
+	     '()]
+	    [else
+	     (cons byte (loop))]))))
+      (eof-object)))
+
 (define (get-line-bytevector binary-input-port)
-    (u8-list->bytevector
-     (let loop ()
-       (let ([byte (get-u8 binary-input-port)])
-         (cond
-	  [(eof-object? byte)
-	   '()]
-          [(= byte *line-feed*)
-           '()]
-          [(= byte *carriage-return*)
-           (get-u8 binary-input-port)
-           '()]
-          [else
-           (cons byte (loop))])))))
+  (define ret #f)
+  (define u8-list '())
+  (if (not (eof-object? (lookahead-u8 binary-input-port)))
+      (let ()
+	(do ([byte #f]
+	     [break #f])
+	    (break)
+	  (set! byte (get-u8 binary-input-port))
+	  (cond
+	   [(or (eof-object? byte) (= byte *line-feed*))
+	    (set! break #t)]
+	   [(= byte *carriage-return*)
+	    (printf "carriage-return")
+	    (pretty-print (get-u8 binary-input-port))
+	    (set! break #t)]
+	   [else
+	    (set! u8-list (append u8-list (list byte)))]))
+	(set! ret (u8-list->bytevector u8-list)))
+      (set! ret (eof-object)))
+  ret)
 
 (define (current-seconds)
   (time-second (current-time)))
@@ -121,7 +145,6 @@
 					      "\r\n"
 					      body) none-transcoder))
   (flush-output-port port)
-  (close-port port)
   (printf "response did~%"))
 
 (define (response-html html port)
@@ -134,8 +157,7 @@
 					      "Content-Type: text/html\r\n"
 					      "\r\n"
 					      html) none-transcoder))
-  (flush-output-port port)
-  (close-port port))
+  (flush-output-port port))
 
 (define (response-file file-port res-port)
   (let ([file-content (get-bytevector-all file-port)]
@@ -153,8 +175,7 @@
     (if (not (eof-object? file-content))
 	(put-bytevector res-port file-content))
     
-    (flush-output-port res-port)
-    (close-port res-port)))
+    (flush-output-port res-port)))
 
 
 ;;; Deal with CGIs
@@ -307,7 +328,7 @@
 	  (pretty-print header-line)
 	  
 	  (set! header-tokens (string-split header-line #\space))
-	  
+	  (pretty-print "request line splited.")
 	  (when (= (length header-tokens) 3)
 
 		(http-request-r-method-set! recv-request (list-ref header-tokens 0))
@@ -323,34 +344,54 @@
 			(http-request-r-data-set! recv-request #f)
 			)))
 		;;(printf "Secured path: ~s~%" (http-request-r-uri recv-request))
-		(do ([line (bytevector->string (get-line-bytevector binary-input/output-port) crlf-transcoder)]
+		(do ([bv-line #f]
+		     [line #f]
 		     [line-len 0]
 		     [line-tokens #f]
 		     [break #f])
-		    ((or (eof-object? line) break))
-		  (set! line (bytevector->string (get-line-bytevector binary-input/output-port) crlf-transcoder))
-		  (set! line-len (string-length line))
-		  (pretty-print line)
-		  (set! line-tokens (string-split line #\: 2))
-		  (if (= 2 (length line-tokens))
+		    (break)
+		  (pretty-print "start to get the header line.")
+		  (set! bv-line (get-line-bytevector binary-input/output-port))
+		  (pretty-print "got header line.")
+		  (if (not (eof-object? bv-line))
 		      (let ()
-			(hashtable-set! (http-request-r-headers recv-request)
-					(string-upcase (list-ref line-tokens 0))
-					(list-ref line-tokens 1)))
+			(pretty-print "not eof.")
+			(pretty-print bv-line)
+			(bytevector->string bv-line crlf-transcoder)
+			(pretty-print "bytevector->string can do.")
+			(set! line #f)
+			(pretty-print "line set to false.")
+			(set! line (bytevector->string bv-line crlf-transcoder))
+			(pretty-print "bytevector->string did.")
+			(set! line-len (string-length line))
+			(pretty-print "set line-len.")
+			(pretty-print line)
+			(set! line-tokens (string-split line #\: 2))
+			(pretty-print "header line splited.")
+			(if (= 2 (length line-tokens))
+			    (let ()
+			      (hashtable-set! (http-request-r-headers recv-request)
+					      (string-upcase (list-ref line-tokens 0))
+					      (list-ref line-tokens 1)))
+			    (let ()
+			      (if (string=? "" line)
+				  (let ()
+				    (set! ret #t)
+				    (set! break #t))
+				  (let ()
+				    (printf "Malformed header.~%")
+				    (set! ret #f)
+				    (set! break #t))))))
 		      (let ()
-			(if (string=? "" line)
-			    (let ()
-			      (set! ret #t)
-			      (set! break #t))
-			    (let ()
-			      (printf "Malformed header.~%")
-			      (set! ret #f)
-			      (set! break #t))))))
-		(printf "~%")
+			(pretty-print "it's eof.")
+			(set! ret #f)
+			(set! break #t))))
+		(printf "deal headers finished.~%")
 
 		(if ret
 		    (deal-header recv-request binary-input/output-port))))
-	(pretty-print "Here3"))))
+	(pretty-print "No request line."))
+    (close-port binary-input/output-port)))
 
 
 ;;; Deal with connection
@@ -368,7 +409,7 @@
       (hashtable-set! cgi-get "/abc" cgi-get-abc)))
 
 ;;; Set up server socket
-(server-sd (setup-server-socket 6101))
+(server-sd (setup-server-socket 6102))
 
 ;;; Loop for new connections
 (do () (#f)
