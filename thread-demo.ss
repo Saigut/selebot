@@ -19,20 +19,13 @@
 (define conn-active (make-thread-parameter #f))
 
 ;;; Utils
-(define (get-line-bytevector-old binary-input-port)
-  (if (not (eof-object? (lookahead-u8 binary-input-port)))
-      (u8-list->bytevector
-       (let loop ()
-	 (let ([byte (get-u8 binary-input-port)])
-	   (cond
-	    [(or (eof-object? byte) (= byte *line-feed*))
-	     '()]
-	    [(= byte *carriage-return*)
-	     (get-u8 binary-input-port)
-	     '()]
-	    [else
-	     (cons byte (loop))]))))
-      (eof-object)))
+(define (f-pretty-print obj)
+  (pretty-print obj)
+  (flush-output-port (current-output-port)))
+
+(define (f-printf . params)
+  (apply printf params)
+  (flush-output-port (current-output-port)))
 
 (define (get-line-bytevector binary-input-port)
   (define ret #f)
@@ -59,16 +52,16 @@
 ;;; Custom Port
 (define (make-r! socket)
   (lambda (bv start n)
-    (printf "~a: want read ~a chars~%" (client-sd) n)
+    ;;(f-printf "~a: want read ~a chars~%" (client-sd) n)
     (let ([readin (c-read socket bv start n)])
-      (printf "~a: read ~a chars~%" (client-sd) readin)
+      ;;(f-printf "~a: read ~a chars~%" (client-sd) readin)
       readin)))
 
 (define (make-w! socket)
   (lambda (bv start n)
-    (printf "~a: want write ~a chars~%" (client-sd) n)
+    ;;(f-printf "~a: want write ~a chars~%" (client-sd) n)
     (let ([sendout (c-write socket bv start n)])
-	  (printf "~a: wrote ~a chars~%" (client-sd) sendout)
+	  ;;(f-printf "~a: wrote ~a chars~%" (client-sd) sendout)
 	  sendout)))
 
 (define (make-close socket)
@@ -90,49 +83,54 @@
 					      "\r\n"
 					      body) none-transcoder))
   (flush-output-port port)
-  (printf "~a: response did~%" (client-sd)))
+  (f-printf "~a: response did~%" (client-sd)))
 
-;;; Deal with request, getting header
-(define deal-req
-  (lambda (c-sd)
-    (define binary-input/output-port (make-custom-binary-input/output-port "network input port"
-									   (make-r! c-sd)
-									   (make-w! c-sd)
-									   #f
-									   #f
-									   (make-close  c-sd)))
+
+;;; Deal with request, getting line
+(define deal-line
+  (lambda (binary-input/output-port)
+    
 
     (define binary-line #f)
     
     (define line #f)
+
+    (f-printf "~a: getting line~%" (client-sd))
     
     (set! binary-line (get-line-bytevector binary-input/output-port))
 
+    (f-printf "~a: got line~%" (client-sd))
+
     (if (not (eof-object? binary-line))
 	(let ()
+	  (f-printf "~a: do bytevector->string~%" (client-sd))
 	  (set! line (bytevector->string binary-line none-transcoder))
-	  (printf "~a: " (client-sd))
-	  (pretty-print line)
-	  (pretty-print "Here")
+	  (f-printf "~a: " (client-sd))
+	  (f-printf line)
+	  (f-printf "~%~a: printed line~%" (client-sd))
 	  (if (string=? line "")
 	      (let ()
-		(pretty-print "Here1")		
 		(response-404 binary-input/output-port)
-		(close-port binary-input/output-port)))
-	  (pretty-print "Here2"))
+		(close-port binary-input/output-port))))
 	(let ()
-	  (pretty-print "Here3")
 	  (response-404 binary-input/output-port)
-	  (close-port binary-input/output-port)))))
+	  (close-port binary-input/output-port)))
+    (f-printf "~a: dealed line~%" (client-sd))))
 
 
 ;;; Deal with connection
 (define client-conn
   (lambda ()
+    (define binary-input/output-port (make-custom-binary-input/output-port "network input port"
+									   (make-r! (client-sd))
+									   (make-w! (client-sd))
+									   #f
+									   #f
+									   (make-close (client-sd))))
     (do ()
 	((not (conn-active))
-	 (printf "Client quit. sd: ~a~%~%" (client-sd)))
-      (deal-req (client-sd)))))
+	 (f-printf "Client quit. sd: ~a~%~%" (client-sd)))
+      (deal-line binary-input/output-port))))
 
 
 ;;; Set up server socket
@@ -144,11 +142,11 @@
 
   (if (> (client-sd) 0)
       (let ()
-	(printf "New client connected. sd: ~a~%~%" (client-sd))
+	(f-printf "New client connected. sd: ~a~%~%" (client-sd))
 	(if (< (setsock-recvtimeout (client-sd) 2000) 0)
 	    (let ()
 	      (close (client-sd))
-	      (printf "Client Closed due to something wrong.~%"))
+	      (f-printf "Client Closed due to something wrong.~%"))
 	    (let ()
 	      (parameterize
 	       ([current-exception-state (create-exception-state default-exception-handler)]
