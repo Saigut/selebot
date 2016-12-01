@@ -40,7 +40,7 @@ int c_read(int fd, char *buf, size_t start, size_t n) {
 
     int issue_count = 0;
 
-    setbuf(stdout, NULL);
+//    setbuf(stdout, NULL);
     
     buf += start;
     while (1) {
