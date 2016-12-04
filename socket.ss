@@ -1,4 +1,4 @@
-;;; socket.ss
+3;;; socket.ss
 ;;; R. Kent Dybvig May 1998
 ;;; Updated November 2005
 ;;; Public Domain
@@ -118,6 +118,15 @@
 (define setsock-recvtimeout
    (foreign-procedure "setsock_recvtimeout" (int int)
     int))
+
+(define ori-c-printf
+  (foreign-procedure "printf" (string)
+		     int))
+
+(define set-stdout-null
+  (foreign-procedure "set_stdout_null" ()
+		     void))
+
 
 ;;; higher-level routines
 

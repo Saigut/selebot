@@ -137,7 +137,12 @@ int do_connect(int s, char *ip, int port) {
 }
 
 /* get_error returns the operating system's error status */
-char* get_error(void) {
+char* get_error( void ) {
     extern int errno;
     return strerror(errno);
+}
+
+
+void set_stdout_null( void ) {
+    setbuf(stdout, NULL);
 }
