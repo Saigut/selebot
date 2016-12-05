@@ -12,7 +12,7 @@
 (define (loop-print)
   (do ([i 0 (+ i 1)])
       (#f)
-    (fprintf (main-output-port) "count ~a~%" i)))
+    (format (main-output-port) "count ~a~%" i)))
 
 ;;(console-output-port (standard-output-port 'none none-transcoder))
 

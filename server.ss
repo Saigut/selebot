@@ -91,7 +91,7 @@
 	   [(or (eof-object? byte) (= byte *line-feed*))
 	    (set! break #t)]
 	   [(= byte *carriage-return*)
-	    ;;(c-printf "~a: carriage-return " (client-sd))
+	    ;;(printf "~a: carriage-return " (client-sd))
 	    ;;(f-pretty-print (get-u8 binary-input-port))
 	    (set! break #t)]
 	   [else
@@ -134,20 +134,20 @@
 ;;; Custom Port
 (define (make-r! socket)
   (lambda (bv start n)
-    (c-printf "~a: want read ~a chars~%" (client-sd) n)
+    (printf "~a: want read ~a chars~%" (client-sd) n)
     (let ([readin (c-read socket bv start n)])
       #|(unless (> readin 0)
 	      (conn-active #f))|#
-      (c-printf "~a: read ~a chars~%" (client-sd) readin)
+      (printf "~a: read ~a chars~%" (client-sd) readin)
       readin)))
 
 (define (make-w! socket)
   (lambda (bv start n)
-    (c-printf "~a: want write ~a chars~%" (client-sd) n)
+    (printf "~a: want write ~a chars~%" (client-sd) n)
     (let ([sendout (c-write socket bv start n)])
 	  #|(when (< sendout 0)
 		(conn-active #f))|#
-	  (c-printf "~a: wrote ~a chars~%" (client-sd) sendout)
+	  (printf "~a: wrote ~a chars~%" (client-sd) sendout)
 	  sendout)))
 
 (define (make-close socket)
@@ -169,10 +169,10 @@
 					      "\r\n"
 					      body) none-transcoder))
   (flush-output-port port)
-  (c-printf "~a: response did~%" (client-sd)))
+  (printf "~a: response did~%" (client-sd)))
 
 (define (response-html html port)
-  (c-printf "in response-html 1~%")
+  (printf "in response-html 1~%")
   (set! body-len (string-length html))
   (put-bytevector port (string->bytevector (string-append
 					      "HTTP/1.1 200 OK\r\n"
@@ -182,9 +182,9 @@
 					      "Content-Type: text/html\r\n"
 					      "\r\n"
 					      html) none-transcoder))
-  (c-printf "in response-html 2~%")
+  (printf "in response-html 2~%")
   (flush-output-port port)
-  (c-printf "in response-html 3~%"))
+  (printf "in response-html 3~%"))
 
 (define (response-file file-port res-port)
   (let ([file-content (get-bytevector-all file-port)]
@@ -217,6 +217,7 @@
 
 (define cgi-get-abc
   (lambda (resuest port)
+    (printf "in cgi-get-abc~%")
     (response-html "<h1>You are /abc, Isn't you?</h1>" port)))
 
 
@@ -231,15 +232,15 @@
 
 ;;; Deal with methods
 (define (deal-method-options request port)
-  (c-printf "Dealing with Method OPTIONS~%")
+  (printf "Dealing with Method OPTIONS~%")
   (response-404 port))
 
 (define (deal-method-get request port)
-  (c-printf "~a: Dealing with Method GET~%" (client-sd))
+  (printf "~a: Dealing with Method GET~%" (client-sd))
 
   (let* ([path (http-request-r-uri request)]
 	 [file-path (string-append "./" path)])
-    (f-pretty-print path)
+    (printf path)
     (cond
      [(cgi-get-exist? path) => (lambda (deal-cgi-get) (deal-cgi-get request port))]
      [(file-exists? file-path)
@@ -251,35 +252,35 @@
        [else
 	(response-404 port)])]
      [else
-      (f-pretty-print "to response 404")
+      (printf "to response 404")
       (response-404 port)])))
 
 (define (deal-method-head request port)
-  (c-printf "Dealing with Method HEAD~%")
+  (printf "Dealing with Method HEAD~%")
   (response-404 port))
 
 (define (deal-method-post request port)
-  (c-printf "Dealing with Method POST~%")
+  (printf "Dealing with Method POST~%")
   (response-404 port))
 
 (define (deal-method-put request port)
-  (c-printf "Dealing with Method PUT~%")
+  (printf "Dealing with Method PUT~%")
   (response-404 port))
 
 (define (deal-method-delete request port)
-  (c-printf "Dealing with Method DELETE~%")
+  (printf "Dealing with Method DELETE~%")
   (response-404 port))
 
 (define (deal-method-trace request port)
-  (c-printf "Dealing with Method TRACE~%")
+  (printf "Dealing with Method TRACE~%")
   (response-404 port))
 
 (define (deal-method-connect request port)
-  (c-printf "Dealing with Method CONNECT~%")
+  (printf "Dealing with Method CONNECT~%")
   (response-404 port))
 
 (define (deal-method-unknown request port)
-  (c-printf "Dealing with Method UNKNOWN~%")
+  (printf "Dealing with Method UNKNOWN~%")
   (response-404 port))
 
 
@@ -313,7 +314,7 @@
 		  (deal-method-connect request textual-port)]
 		 
 		 [else
-		  (c-printf "~a: Unknown Method: ~s~%" (client-sd) method)
+		  (printf "~a: Unknown Method: ~s~%" (client-sd) method)
 		  (deal-method-unknown request textual-port)])))
 
 ;;; Deal with request, getting header
@@ -343,20 +344,22 @@
 
     (define ret #f)
 
-    (c-printf "~a: Here1~%" (client-sd))
+    (printf "~a: Here1~%" (client-sd))
     
     (set! binary-header-line (get-line-bytevector binary-input/output-port))
 
-    (c-printf "~a: Here2~%" (client-sd))
+    (printf "~a: Here2~%" (client-sd))
 
     (if (not (eof-object? binary-header-line))
 	(let ()
+	  (printf "want do bytevector->string~%")
 	  (set! header-line (bytevector->string binary-header-line crlf-transcoder))
-	  (c-printf "~a: Here2.1~%" (client-sd))
-	  (c-printf header-line)
+	  (printf "bytevector->string did~%")
+	  (printf "~a: Here2.1~%" (client-sd))
+	  (printf header-line)
 	  
 	  (set! header-tokens (string-split header-line #\space))
-	  (c-printf "~a: request line splited.~%" (client-sd))
+	  (printf "~a: request line splited.~%" (client-sd))
 	  (when (= (length header-tokens) 3)
 
 		(http-request-r-method-set! recv-request (list-ref header-tokens 0))
@@ -371,32 +374,36 @@
 			(http-request-r-uri-set! recv-request (secure-path uri))
 			(http-request-r-data-set! recv-request #f)
 			)))
-		;;(c-printf "Secured path: ~s~%" (http-request-r-uri recv-request))
+		;;(printf "Secured path: ~s~%" (http-request-r-uri recv-request))
 		(do ([bv-line #f]
 		     [line #f]
 		     [line-len 0]
 		     [line-tokens #f]
 		     [break #f])
 		    (break)
-		  (c-printf "~a: start to get the header line.~%" (client-sd))
+		  (printf "~a: start to get the header line.~%" (client-sd))
 		  (set! bv-line (get-line-bytevector binary-input/output-port))
-		  (c-printf "~a: got header line.~%" (client-sd))
+		  (printf "~a: got header line.~%" (client-sd))
 		  (if (not (eof-object? bv-line))
 		      (let ()
-			(c-printf "~a: not eof.~%" (client-sd))
-			;;(c-printf "~a: " (client-sd))
+			(printf "~a: not eof.~%" (client-sd))
+			;;(printf "~a: " (client-sd))
 			;;(f-pretty-print bv-line)
+			(printf "want do bytevector->string 2~%")
 			(bytevector->string bv-line crlf-transcoder)
-			(c-printf "~a: bytevector->string can do.~%" (client-sd))
+			(printf "bytevector->string did 2~%")
+			(printf "~a: bytevector->string can do.~%" (client-sd))
 			(set! line #f)
-			(c-printf "~a: line set to false.~%" (client-sd))
+			(printf "~a: line set to false.~%" (client-sd))
+			(printf "want do bytevector->string 3~%")
 			(set! line (bytevector->string bv-line crlf-transcoder))
-			(c-printf "~a: bytevector->string did.~%" (client-sd))
+			(printf "bytevector->string did 3~%")
+			(printf "~a: bytevector->string did.~%" (client-sd))
 			(set! line-len (string-length line))
-			(c-printf "~a: set line-len.~%" (client-sd))
-			(c-printf (string-append "~a: " line "~%") (client-sd))
+			(printf "~a: set line-len.~%" (client-sd))
+			(printf (string-append "~a: " line "~%") (client-sd))
 			(set! line-tokens (string-split line #\: 2))
-			(c-printf "~a: header line splited.~%" (client-sd))
+			(printf "~a: header line splited.~%" (client-sd))
 			(if (= 2 (length line-tokens))
 			    (let ()
 			      (hashtable-set! (http-request-r-headers recv-request)
@@ -408,18 +415,18 @@
 				    (set! ret #t)
 				    (set! break #t))
 				  (let ()
-				    (c-printf "~a: Malformed header.~%" (client-sd))
+				    (printf "~a: Malformed header.~%" (client-sd))
 				    (set! ret #f)
 				    (set! break #t))))))
 		      (let ()
-			(c-printf "~a: it's eof.~%" (client-sd))
+			(printf "~a: it's eof.~%" (client-sd))
 			(set! ret #f)
 			(set! break #t))))
-		(c-printf "~a: deal headers finished.~%" (client-sd))
+		(printf "~a: deal headers finished.~%" (client-sd))
 
 		(if ret
 		    (deal-header recv-request binary-input/output-port))))
-	(c-printf "~a: No request line.~%" (client-sd)))
+	(printf "~a: No request line.~%" (client-sd)))
     (close-port binary-input/output-port)))
 
 
@@ -430,7 +437,7 @@
     (do ()
 	((not (conn-active))
 	 (close (client-sd))
-	 (c-printf "Client quit. sd: ~a~%~%" (client-sd)))
+	 (printf "Client quit. sd: ~a~%~%" (client-sd)))
       (deal-req (client-sd)))))
 
 (set-stdout-null)
@@ -451,11 +458,11 @@
 
   (if (> (client-sd) 0)
       (let ()
-	(c-printf "New client connected. sd: ~a~%~%" (client-sd))
+	(printf "New client connected. sd: ~a~%~%" (client-sd))
 	(if (< (setsock-recvtimeout (client-sd) 2000) 0)
 	    (let ()
 	      (close (client-sd))
-	      (c-printf "Client Closed due to something wrong.~%"))
+	      (printf "Client Closed due to something wrong.~%"))
 	    (let ()
 	      (parameterize
 	       ([current-exception-state (create-exception-state default-exception-handler)]
