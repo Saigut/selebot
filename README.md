@@ -1,24 +1,13 @@
-# selebot
+# Selebot
+
+## Prerequisite
 
 * Firstlly, install the Chez Scheme: https://github.com/cisco/ChezScheme
 
-* Go into this selebot repo, then:
+* All the libraries Selebot depend on can be found at https://github.com/Saigut/chezscheme-libs. You can reference to that repository and set up the libraries.
 
-```
-gcc -fPIC -shared -o csocket.so ./csocket.c
+## Run
 
-git clone --depth 1 https://github.com/rotty/spells spells_repo
-mv spells_repo/spells ./
-rm -rf spells_repo
-
-git clone --depth 1 https://github.com/fedeinthemix/chez-srfi chez-srfi_repo
-cd chez-srfi_repo
-make build CHEZ=scheme
-cd ..
-mv chez-srfi_repo/srfi ./
-rm -rf chez-srfi_repo
-```
-Then you can run the server:
 ```
 scheme ./server.ss
 ```

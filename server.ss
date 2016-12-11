@@ -1,9 +1,9 @@
 (import	(chezscheme)
 	;;(socket)
 	(spells string-utils)
-	(only (srfi :13) string-index
+	(only (srfi srfi-13) string-index
 	      string-trim-both)
-	(srfi :19)
+	(srfi srfi-19)
 	(server-lib))
 
 (load "./socket.ss")
