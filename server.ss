@@ -20,6 +20,16 @@
   
   (nongenerative http-request-r-uuid-001))
 
+(define-record-type http-conn-param-r
+  
+  (fields
+   (mutable conn-active)
+   (mutable begin-time)
+   (mutable cur-time)
+   (mutable keep-alive))
+  
+  (nongenerative http-conn-param-r-uuid-001))
+
 ;;; Global Variables
 ;; Transcoders
 (define none-transcoder (make-transcoder (utf-8-codec) 'none 'replace))
@@ -35,6 +45,10 @@
 (define server-sd (make-parameter -1))
 (define client-sd (make-thread-parameter -1))
 (define conn-active (make-thread-parameter #f))
+(define conn-param (make-thread-parameter
+		    (make-conn-param-r #f
+				       -1
+				       -1)))
 
 ;; CGIs
 (define cgis (make-hashtable string-hash string=?))
@@ -344,22 +358,14 @@
 
     (define ret #f)
 
-    (printf "~a: Here1~%" (client-sd))
-    
     (set! binary-header-line (get-line-bytevector binary-input/output-port))
-
-    (printf "~a: Here2~%" (client-sd))
 
     (if (not (eof-object? binary-header-line))
 	(let ()
-	  (printf "want do bytevector->string~%")
 	  (set! header-line (bytevector->string binary-header-line crlf-transcoder))
-	  (printf "bytevector->string did~%")
-	  (printf "~a: Here2.1~%" (client-sd))
-	  (printf header-line)
+	  (printf (string-append "~a: " header-line "~%") (client-sd))
 	  
 	  (set! header-tokens (string-split header-line #\space))
-	  (printf "~a: request line splited.~%" (client-sd))
 	  (when (= (length header-tokens) 3)
 
 		(http-request-r-method-set! recv-request (list-ref header-tokens 0))
@@ -374,36 +380,19 @@
 			(http-request-r-uri-set! recv-request (secure-path uri))
 			(http-request-r-data-set! recv-request #f)
 			)))
-		;;(printf "Secured path: ~s~%" (http-request-r-uri recv-request))
 		(do ([bv-line #f]
 		     [line #f]
 		     [line-len 0]
 		     [line-tokens #f]
 		     [break #f])
 		    (break)
-		  (printf "~a: start to get the header line.~%" (client-sd))
 		  (set! bv-line (get-line-bytevector binary-input/output-port))
-		  (printf "~a: got header line.~%" (client-sd))
 		  (if (not (eof-object? bv-line))
 		      (let ()
-			(printf "~a: not eof.~%" (client-sd))
-			;;(printf "~a: " (client-sd))
-			;;(f-pretty-print bv-line)
-			(printf "want do bytevector->string 2~%")
-			(bytevector->string bv-line crlf-transcoder)
-			(printf "bytevector->string did 2~%")
-			(printf "~a: bytevector->string can do.~%" (client-sd))
-			(set! line #f)
-			(printf "~a: line set to false.~%" (client-sd))
-			(printf "want do bytevector->string 3~%")
 			(set! line (bytevector->string bv-line crlf-transcoder))
-			(printf "bytevector->string did 3~%")
-			(printf "~a: bytevector->string did.~%" (client-sd))
 			(set! line-len (string-length line))
-			(printf "~a: set line-len.~%" (client-sd))
 			(printf (string-append "~a: " line "~%") (client-sd))
 			(set! line-tokens (string-split line #\: 2))
-			(printf "~a: header line splited.~%" (client-sd))
 			(if (= 2 (length line-tokens))
 			    (let ()
 			      (hashtable-set! (http-request-r-headers recv-request)
