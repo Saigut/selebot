@@ -26,7 +26,7 @@
    (mutable conn-active)
    (mutable begin-time)
    (mutable cur-time)
-   (mutable keep-alive))
+   (mutable keep-alive-time))
   
   (nongenerative http-conn-param-r-uuid-001))
 
@@ -36,6 +36,7 @@
 (define crlf-transcoder (make-transcoder (utf-8-codec)
 					 (eol-style crlf)
 					 (error-handling-mode replace)))
+(define def-keep-live-time 10)
 
 ;; Special characters
 (define *line-feed* #x0a)
@@ -45,10 +46,7 @@
 (define server-sd (make-parameter -1))
 (define client-sd (make-thread-parameter -1))
 (define conn-active (make-thread-parameter #f))
-(define conn-param (make-thread-parameter
-		    (make-conn-param-r #f
-				       -1
-				       -1)))
+(define conn-param (make-thread-parameter #f))
 
 ;; CGIs
 (define cgis (make-hashtable string-hash string=?))
@@ -106,7 +104,7 @@
 	    (set! break #t)]
 	   [(= byte *carriage-return*)
 	    ;;(printf "~a: carriage-return " (client-sd))
-	    ;;(f-pretty-print (get-u8 binary-input-port))
+	    (get-u8 binary-input-port)
 	    (set! break #t)]
 	   [else
 	    (set! u8-list (append u8-list (list byte)))]))
@@ -148,26 +146,26 @@
 ;;; Custom Port
 (define (make-r! socket)
   (lambda (bv start n)
-    (printf "~a: want read ~a chars~%" (client-sd) n)
+    ;;(printf "~a: want read ~a chars~%" (client-sd) n)
     (let ([readin (c-read socket bv start n)])
       #|(unless (> readin 0)
 	      (conn-active #f))|#
-      (printf "~a: read ~a chars~%" (client-sd) readin)
+      ;;(printf "~a: read ~a chars~%" (client-sd) readin)
       readin)))
 
 (define (make-w! socket)
   (lambda (bv start n)
-    (printf "~a: want write ~a chars~%" (client-sd) n)
+    ;;(printf "~a: want write ~a chars~%" (client-sd) n)
     (let ([sendout (c-write socket bv start n)])
 	  #|(when (< sendout 0)
 		(conn-active #f))|#
-	  (printf "~a: wrote ~a chars~%" (client-sd) sendout)
+	  ;;(printf "~a: wrote ~a chars~%" (client-sd) sendout)
 	  sendout)))
 
 (define (make-close socket)
   (lambda ()
     (close socket)
-    (conn-active #f)))
+    (http-conn-param-r-conn-active-set! (conn-param) #f)))
 
 
 ;;; Responses
@@ -186,7 +184,6 @@
   (printf "~a: response did~%" (client-sd)))
 
 (define (response-html html port)
-  (printf "in response-html 1~%")
   (set! body-len (string-length html))
   (put-bytevector port (string->bytevector (string-append
 					      "HTTP/1.1 200 OK\r\n"
@@ -196,9 +193,7 @@
 					      "Content-Type: text/html\r\n"
 					      "\r\n"
 					      html) none-transcoder))
-  (printf "in response-html 2~%")
-  (flush-output-port port)
-  (printf "in response-html 3~%"))
+  (flush-output-port port))
 
 (define (response-file file-port res-port)
   (let ([file-content (get-bytevector-all file-port)]
@@ -231,7 +226,6 @@
 
 (define cgi-get-abc
   (lambda (resuest port)
-    (printf "in cgi-get-abc~%")
     (response-html "<h1>You are /abc, Isn't you?</h1>" port)))
 
 
@@ -250,11 +244,10 @@
   (response-404 port))
 
 (define (deal-method-get request port)
-  (printf "~a: Dealing with Method GET~%" (client-sd))
+  ;;(printf "~a: Dealing with Method GET~%" (client-sd))
 
   (let* ([path (http-request-r-uri request)]
 	 [file-path (string-append "./" path)])
-    (printf path)
     (cond
      [(cgi-get-exist? path) => (lambda (deal-cgi-get) (deal-cgi-get request port))]
      [(file-exists? file-path)
@@ -333,21 +326,8 @@
 
 ;;; Deal with request, getting header
 (define deal-req
-  (lambda (c-sd)
-    (define recv-request (make-http-request-r #f
-					      #f
-					      #f
-					      (make-hashtable equal-hash equal?)
-					      #f
-					      #f))
-
-
-    (define binary-input/output-port (make-custom-binary-input/output-port "network input port"
-									   (make-r! c-sd)
-									   (make-w! c-sd)
-									   #f
-									   #f
-									   (make-close  c-sd)))
+  (lambda (recv-request binary-input/output-port)
+    
     ;;(define binary-input/output-port (transcoded-port binary-input/output-port none-transcoder))
 
     (define binary-header-line #f)
@@ -358,76 +338,139 @@
 
     (define ret #f)
 
-    (set! binary-header-line (get-line-bytevector binary-input/output-port))
+    #|(printf "time-difference: ")
+    (pretty-print (time-difference
+		  (http-conn-param-r-cur-time (conn-param))
+		  (http-conn-param-r-begin-time (conn-param))))
 
-    (if (not (eof-object? binary-header-line))
+    (printf "keep-alive-time: ")
+    (pretty-print (http-conn-param-r-keep-alive-time (conn-param)))|#
+
+    (if (time<=? (time-difference
+		  (http-conn-param-r-cur-time (conn-param))
+		  (http-conn-param-r-begin-time (conn-param)))
+		 (http-conn-param-r-keep-alive-time (conn-param)))
+
 	(let ()
-	  (set! header-line (bytevector->string binary-header-line crlf-transcoder))
-	  (printf (string-append "~a: " header-line "~%") (client-sd))
-	  
-	  (set! header-tokens (string-split header-line #\space))
-	  (when (= (length header-tokens) 3)
+	  (if (bytes-ready? (client-sd))
+	      (set! binary-header-line (get-line-bytevector binary-input/output-port))
+	      (let ()
+		(sleep (make-time 'time-duration 0 1))
+		(set! binary-header-line (eof-object))))
 
-		(http-request-r-method-set! recv-request (list-ref header-tokens 0))
+	  (if (not (eof-object? binary-header-line))
+	      (let ()
+		(set! header-line (bytevector->string binary-header-line crlf-transcoder))
+		(newline)
+		;;(printf (string-append "~a: " header-line "~%") (client-sd))
+		
+		(set! header-tokens (string-split header-line #\space))
+		(when (= (length header-tokens) 3)
 
-		(http-request-r-version-set! recv-request (list-ref header-tokens 2))
-		(let* ([uri (list-ref header-tokens 1)] [idx (string-index uri #\?)])
-		  (if (number? idx)
-		      (let ()
-			(http-request-r-uri-set! recv-request (secure-path (substring uri 0 idx)))
-			(http-request-r-data-set! recv-request (substring uri (+ idx 1) (string-length uri))))
-		      (let ()
-			(http-request-r-uri-set! recv-request (secure-path uri))
-			(http-request-r-data-set! recv-request #f)
-			)))
-		(do ([bv-line #f]
-		     [line #f]
-		     [line-len 0]
-		     [line-tokens #f]
-		     [break #f])
-		    (break)
-		  (set! bv-line (get-line-bytevector binary-input/output-port))
-		  (if (not (eof-object? bv-line))
-		      (let ()
-			(set! line (bytevector->string bv-line crlf-transcoder))
-			(set! line-len (string-length line))
-			(printf (string-append "~a: " line "~%") (client-sd))
-			(set! line-tokens (string-split line #\: 2))
-			(if (= 2 (length line-tokens))
+		      (http-request-r-method-set! recv-request (list-ref header-tokens 0))
+
+		      (http-request-r-version-set! recv-request (list-ref header-tokens 2))
+		      (let* ([uri (list-ref header-tokens 1)] [idx (string-index uri #\?)])
+			(if (number? idx)
 			    (let ()
-			      (hashtable-set! (http-request-r-headers recv-request)
-					      (string-upcase (list-ref line-tokens 0))
-					      (list-ref line-tokens 1)))
+			      (http-request-r-uri-set! recv-request (secure-path (substring uri 0 idx)))
+			      (http-request-r-data-set! recv-request (substring uri (+ idx 1) (string-length uri))))
 			    (let ()
-			      (if (string=? "" line)
+			      (http-request-r-uri-set! recv-request (secure-path uri))
+			      (http-request-r-data-set! recv-request #f)
+			      )))
+		      (do ([bv-line #f]
+			   [line #f]
+			   [line-len 0]
+			   [line-tokens #f]
+			   [break #f])
+			  (break)
+			(set! bv-line (get-line-bytevector binary-input/output-port))
+			(if (not (eof-object? bv-line))
+			    (let ()
+			      (set! line (bytevector->string bv-line crlf-transcoder))
+			      (set! line-len (string-length line))
+			      ;;(printf (string-append "~a: " line "~%") (client-sd))
+			      (set! line-tokens (string-split line #\: 2))
+			      (if (= 2 (length line-tokens))
 				  (let ()
-				    (set! ret #t)
-				    (set! break #t))
+				    (hashtable-set! (http-request-r-headers recv-request)
+						    (string-upcase (list-ref line-tokens 0))
+						    (string-trim-both (list-ref line-tokens 1))))
 				  (let ()
-				    (printf "~a: Malformed header.~%" (client-sd))
-				    (set! ret #f)
-				    (set! break #t))))))
-		      (let ()
-			(printf "~a: it's eof.~%" (client-sd))
-			(set! ret #f)
-			(set! break #t))))
-		(printf "~a: deal headers finished.~%" (client-sd))
+				    (if (string=? "" line)
+					(let ()
+					  (if (string-ci=? "keep-alive" (hashtable-ref (http-request-r-headers recv-request) (string-upcase "Connection") ""))
+					      (http-conn-param-r-keep-alive-time-set! (conn-param)
+										 (make-time 'time-duration 0 def-keep-live-time)))
+					  
+					  (set! ret #t)
+					  (set! break #t))
+					(let ()
+					  (printf "~a: Malformed header.~%" (client-sd))
+					  (set! ret #f)
+					  (set! break #t))))))
+			    (let ()
+			      (printf "~a: it's eof.~%" (client-sd))
+			      (set! ret #f)
+			      (set! break #t))))
+		      (newline)
+		      (printf "~a: deal headers finished.~%" (client-sd))
 
-		(if ret
-		    (deal-header recv-request binary-input/output-port))))
-	(printf "~a: No request line.~%" (client-sd)))
-    (close-port binary-input/output-port)))
+		      (if ret
+			  (let ()
+			    (deal-header recv-request binary-input/output-port)
+			    (http-conn-param-r-begin-time-set! (conn-param)
+							     (current-time 'time-monotonic))))))
+	      ;;(printf "~a: No request line.~%" (client-sd))
+	      ))
+	(close-port binary-input/output-port))
+    
+    (cond
+     [(not (http-conn-param-r-conn-active (conn-param)))
+      "quit"]
+     [(string-ci=? "close" (hashtable-ref (http-request-r-headers recv-request) (string-upcase "Connection") ""))
+      (close-port binary-input/output-port)]
+     [(string-ci=? "keep-alive" (hashtable-ref (http-request-r-headers recv-request) (string-upcase "Connection") ""))
+      (http-conn-param-r-cur-time-set! (conn-param)
+				       (current-time 'time-monotonic))]
+     [else
+      (close-port binary-input/output-port)])))
 
 
 ;;; Deal with connection
 (define client-conn
   (lambda ()
     ;;(current-output-port (transcoded-port (standard-output-port) none-transcoder))
+    (define recv-request (make-http-request-r #f
+					      #f
+					      #f
+					      (make-hashtable equal-hash equal?)
+					      #f
+					      #f))
+
+
+    (define binary-input/output-port (make-custom-binary-input/output-port "network input port"
+									   (make-r! (client-sd))
+									   (make-w! (client-sd))
+									   #f
+									   #f
+									   (make-close (client-sd))))
+
+    
+    (conn-param (make-http-conn-param-r #t
+				   (current-time 'time-monotonic)
+				   0
+				   (make-time 'time-duration 0 0)))
+    
+    (http-conn-param-r-cur-time-set! (conn-param)
+				     (http-conn-param-r-begin-time (conn-param)))
+
     (do ()
-	((not (conn-active))
-	 (close (client-sd))
+	((not (http-conn-param-r-conn-active (conn-param)))
+	 ;;(close (client-sd))
 	 (printf "Client quit. sd: ~a~%~%" (client-sd)))
-      (deal-req (client-sd)))))
+      (deal-req recv-request binary-input/output-port))))
 
 (set-stdout-null)
 
