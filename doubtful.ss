@@ -1,5 +1,6 @@
 ;;; if printf is not blocking, the code should blocking at these places
 ;;; so.. it seems that the blocking of printf(possibly all the print procedures) is the only possibility
+;;; BUT, even I comment all print phase, the program can still block
 
 
 (set! u8-list (append u8-list (list byte)))

@@ -46,9 +46,9 @@ int c_read(int fd, char *buf, size_t start, size_t n) {
     buf += start;
     while (1) {
 
-	printf("%d: C reading\n", fd);
+	//printf("%d: C reading\n", fd);
         i = read(fd, buf, n);
-	printf("%d: C read: %d\n", fd, i);
+	//printf("%d: C read: %d\n", fd, i);
 	
         if (i >= 0) {
 	    return i;
