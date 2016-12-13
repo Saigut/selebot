@@ -95,23 +95,36 @@
 (define (get-line-bytevector binary-input-port)
   (define ret #f)
   (define u8-list '())
+  (printf "get 1~%")
   (if (not (eof-object? (lookahead-u8 binary-input-port)))
       (let ()
+	(printf "get 2~%")
 	(do ([byte #f]
 	     [break #f])
 	    (break)
+	  (printf "get 3~%")
 	  (set! byte (get-u8 binary-input-port))
+	  (printf "get 3.1~%")
 	  (cond
 	   [(or (eof-object? byte) (= byte *line-feed*))
+	    (printf "get 4~%")
 	    (set! break #t)]
 	   [(= byte *carriage-return*)
+	    (printf "get 5~%")
 	    ;;(printf "~a: carriage-return " (client-sd))
 	    (get-u8 binary-input-port)
 	    (set! break #t)]
 	   [else
-	    (set! u8-list (append u8-list (list byte)))]))
+	    (printf "get 6~%")
+	    (set! u8-list (append u8-list (list byte)))
+	    (printf "get 6.1~%")]))
+	(printf "get 7~%")
 	(set! ret (u8-list->bytevector u8-list)))
-      (set! ret (eof-object)))
+      (let ()
+	(printf "get 7.1~%")
+	(set! ret (eof-object))
+	(printf "get 7.2~%")))
+  (printf "get 8~%")
   ret)
 
 (define (current-seconds)
@@ -348,6 +361,7 @@
     (printf "keep-alive-time: ")
     (pretty-print (http-conn-param-r-keep-alive-time (conn-param)))|#
 
+    (printf "Here 1~%")
     (if (time<=? (time-difference
 		  (http-conn-param-r-cur-time (conn-param))
 		  (http-conn-param-r-begin-time (conn-param)))
@@ -360,15 +374,19 @@
 		(sleep (make-time 'time-duration 0 1))
 		(set! binary-header-line (eof-object))))
 
+	  (printf "Here 2~%")
+
 	  (if (not (eof-object? binary-header-line))
 	      (let ()
+		(printf "Here 2.1~%")
 		(set! header-line (bytevector->string binary-header-line crlf-transcoder))
+		(printf "Here 2.2~%")
 		(newline)
-		;;(printf (string-append "~a: " header-line "~%") (client-sd))
+		(printf (string-append "~a: " header-line "~%") (client-sd))
 		
 		(set! header-tokens (string-split header-line #\space))
 		(when (= (length header-tokens) 3)
-
+		      (printf "Here 3~%")
 		      (http-request-r-method-set! recv-request (list-ref header-tokens 0))
 
 		      (http-request-r-version-set! recv-request (list-ref header-tokens 2))
@@ -381,25 +399,33 @@
 			      (http-request-r-uri-set! recv-request (secure-path uri))
 			      (http-request-r-data-set! recv-request #f)
 			      )))
+		      (printf "Here 4~%")
 		      (do ([bv-line #f]
 			   [line #f]
 			   [line-len 0]
 			   [line-tokens #f]
 			   [break #f])
 			  (break)
+			(printf "Here 5~%")
 			(set! bv-line (get-line-bytevector binary-input/output-port))
+			(printf "Here 5.1~%")
 			(if (not (eof-object? bv-line))
 			    (let ()
+			      (printf "Here 5.2~%")
 			      (set! line (bytevector->string bv-line crlf-transcoder))
+			      (printf "Here 5.3~%")
 			      (set! line-len (string-length line))
-			      ;;(printf (string-append "~a: " line "~%") (client-sd))
+			      (printf (string-append "~a: " line "~%") (client-sd))
+			      (printf "Here 5.4~%")
 			      (set! line-tokens (string-split line #\: 2))
 			      (if (= 2 (length line-tokens))
 				  (let ()
+				    (printf "Here 5.5~%")
 				    (hashtable-set! (http-request-r-headers recv-request)
 						    (string-upcase (list-ref line-tokens 0))
 						    (string-trim-both (list-ref line-tokens 1))))
 				  (let ()
+				    (printf "Here 5.6~%")
 				    (if (string=? "" line)
 					(let ()
 					  (if (string-ci=? "keep-alive" (hashtable-ref (http-request-r-headers recv-request) (string-upcase "Connection") ""))
@@ -409,13 +435,14 @@
 					  (set! ret #t)
 					  (set! break #t))
 					(let ()
-					  (printf "~a: Malformed header.~%" (client-sd))
+					  ;;(printf "~a: Malformed header.~%" (client-sd))
 					  (set! ret #f)
 					  (set! break #t))))))
 			    (let ()
 			      (printf "~a: it's eof.~%" (client-sd))
 			      (set! ret #f)
 			      (set! break #t))))
+		      (printf "Here 6~%")
 		      (newline)
 		      (printf "~a: deal headers finished.~%" (client-sd))
 
@@ -424,19 +451,27 @@
 			    (deal-header recv-request binary-input/output-port)
 			    (http-conn-param-r-begin-time-set! (conn-param)
 							     (current-time 'time-monotonic))))))
-	      ;;(printf "~a: No request line.~%" (client-sd))
+	      (let ()
+		(printf "Here 7~%")
+		(printf "~a: No request line.~%" (client-sd))
+		(printf "Here 8~%"))
 	      ))
 	(close-port binary-input/output-port))
     
+    (printf "Here 9~%")
+    
     (cond
      [(not (http-conn-param-r-conn-active (conn-param)))
-      "quit"]
+      (printf "Here 10~%")]
      [(string-ci=? "close" (hashtable-ref (http-request-r-headers recv-request) (string-upcase "Connection") ""))
+      (printf "Here 11~%")
       (close-port binary-input/output-port)]
      [(string-ci=? "keep-alive" (hashtable-ref (http-request-r-headers recv-request) (string-upcase "Connection") ""))
+      (printf "Here 12~%")
       (http-conn-param-r-cur-time-set! (conn-param)
 				       (current-time 'time-monotonic))]
      [else
+      (printf "Here 13~%")
       (close-port binary-input/output-port)])))
 
 

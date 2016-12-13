@@ -38,7 +38,7 @@
 
   (define csocket.so
     (load-shared-object "./csocket.so"))
-    
+
     ;; Requires from C library:
     ;;   close, dup, execl, fork, kill, listen, tmpnam, unlink
   (define libc.so
