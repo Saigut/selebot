@@ -1,12 +1,13 @@
 (import	(chezscheme)
-	;;(socket)
+	(socket)
 	(spells string-utils)
 	(only (srfi srfi-13) string-index
 	      string-trim-both)
-	(srfi srfi-19)
+	;;(srfi srfi-19)
 	(server-lib))
 
-(load "./socket.ss")
+;;(load "socket.ss")
+
 
 (define-record-type http-request-r
   
@@ -29,6 +30,7 @@
    (mutable keep-alive-time))
   
   (nongenerative http-conn-param-r-uuid-001))
+
 
 ;;; Global Variables
 ;; Transcoders
@@ -170,8 +172,8 @@
 
 ;;; Responses
 (define (response-404 port)
-  (set! body "<h1>404. Page Not Found.</h1>")
-  (set! body-len (string-length body))
+  (define body "<h1>404. Page Not Found.</h1>")
+  (define body-len (string-length body))
   (put-bytevector port (string->bytevector (string-append
 					      "HTTP/1.1 404 Not Found\r\n"
 					      "Server: Selebot Server v0.01\r\n"
@@ -184,7 +186,7 @@
   (printf "~a: response did~%" (client-sd)))
 
 (define (response-html html port)
-  (set! body-len (string-length html))
+  (define body-len (string-length html))
   (put-bytevector port (string->bytevector (string-append
 					      "HTTP/1.1 200 OK\r\n"
 					      "Server: Selebot Server v0.01\r\n"
@@ -486,15 +488,17 @@
 
 ;;; Loop for new connections
 (do () (#f)
-  (if (bytes-ready? server-sd 3000000)
+  #|(if (bytes-ready? server-sd 3000000)
       (let ()
 	(printf "there is client come in.~%")
 	(client-sd (accept server-sd)))
       (let ()
 	(printf "no client come in.~%")
 	"else"
-	))
+	))|#
 
+  (client-sd (accept server-sd))
+  
   (if (> (client-sd) 0)
       (let ()
 	(printf "New client connected. sd: ~a~%~%" (client-sd))

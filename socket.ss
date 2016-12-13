@@ -7,7 +7,7 @@
 ;;; programs that use sockets.
 
 ;;; Requires csocket.so, built from csocket.c.
-#|(library (socket)
+(library (socket)
   (export close
 	  dup
 	  execl4
@@ -24,24 +24,28 @@
 	  c-write
 	  connect
 	  socket
+	  setsock-recvtimeout
+	  ori-c-printf
+	  set-stdout-null
 	  dodup
 	  dofork
 	  setup-server-socket
 	  setup-client-socket
 	  accept-socket
 	  check)
-  (import (chezscheme))|#
+  (import (chezscheme))
 
 
-
-(load-shared-object "./csocket.so")
-
-;;; Requires from C library:
-;;;   close, dup, execl, fork, kill, listen, tmpnam, unlink
-(case (machine-type)
-  [(i3le ti3le a6le ta6le) (load-shared-object "libc.so.6")]
-  [(i3osx ti3osx) (load-shared-object "libc.dylib")]
-  [else (load-shared-object "libc.so")])
+  (define csocket.so
+    (load-shared-object "./csocket.so"))
+    
+    ;; Requires from C library:
+    ;;   close, dup, execl, fork, kill, listen, tmpnam, unlink
+  (define libc.so
+    (case (machine-type)
+      [(i3le ti3le a6le ta6le) (load-shared-object "libc.so.6")]
+      [(i3osx ti3osx) (load-shared-object "libc.dylib")]
+      [else (load-shared-object "libc.so")]))
 
 ;;; basic C-library stuff
 
@@ -177,4 +181,4 @@
         (error who (c-error))
         x)))
 
-;;)
+)
