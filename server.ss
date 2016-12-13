@@ -43,7 +43,7 @@
 (define *carriage-return* #x0d)
 
 ;; Connection related
-(define server-sd (make-parameter -1))
+(define server-sd -1)
 (define client-sd (make-thread-parameter -1))
 (define conn-active (make-thread-parameter #f))
 (define conn-param (make-thread-parameter #f))
@@ -352,7 +352,7 @@
 		 (http-conn-param-r-keep-alive-time (conn-param)))
 
 	(let ()
-	  (if (bytes-ready? (client-sd))
+	  (if (bytes-ready? (client-sd) 1000000)
 	      (set! binary-header-line (get-line-bytevector binary-input/output-port))
 	      (let ()
 		(sleep (make-time 'time-duration 0 1))
@@ -481,12 +481,19 @@
       (hashtable-set! cgi-get "/abc" cgi-get-abc)))
 
 ;;; Set up server socket
-(server-sd (setup-server-socket 6102))
+(set! server-sd (setup-server-socket 6102))
 
 
 ;;; Loop for new connections
 (do () (#f)
-  (client-sd (accept-socket (server-sd)))
+  (if (bytes-ready? server-sd 3000000)
+      (let ()
+	(printf "there is client come in.~%")
+	(client-sd (accept server-sd)))
+      (let ()
+	(printf "no client come in.~%")
+	"else"
+	))
 
   (if (> (client-sd) 0)
       (let ()
@@ -494,7 +501,8 @@
 	(if (< (setsock-recvtimeout (client-sd) 2000) 0)
 	    (let ()
 	      (close (client-sd))
-	      (printf "Client Closed due to something wrong.~%"))
+	      (printf "Client Closed due to something wrong.~%")
+	      )
 	    (let ()
 	      (parameterize
 	       ([current-exception-state (create-exception-state default-exception-handler)]

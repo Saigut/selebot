@@ -88,7 +88,7 @@
     int))
 
 (define bytes-ready?
-  (foreign-procedure "bytes_ready" (int)
+  (foreign-procedure "bytes_ready" (int int)
     boolean))
 
 (define bind

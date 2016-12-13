@@ -14,6 +14,7 @@ Public Domain
 #include <stdio.h>
 #include <unistd.h>
 #include <time.h>
+#include <stdbool.h>
 
 /* c_write attempts to write the entire buffer, pushing through
    interrupts, socket delays, and partial-buffer writes */
@@ -65,12 +66,35 @@ int c_read(int fd, char *buf, size_t start, size_t n) {
 
 /* bytes_ready(fd) returns true if there are bytes available
    to be read from the socket identified by fd */
-int bytes_ready(int fd) {
+/* int bytes_ready(int fd) {
     int n;
 
     (void) ioctl(fd, FIONREAD, &n);
     return n;
+    } */
+
+int bytes_ready(int fd, int us) {
+    if (fd < 0) {
+	return false;
+    }
+
+    struct timeval Timev;
+    fd_set RFDs;
+
+    Timev.tv_sec = us / 1000000;
+    Timev.tv_usec = us % 1000000;
+
+    FD_ZERO(&RFDs);
+    FD_SET(fd, &RFDs);
+    if (select(fd + 1, &RFDs, NULL, NULL, &Timev) > 0) {
+	if (FD_ISSET(fd, &RFDs)) {
+	    return true;
+	}
+    }
+
+    return false;
 }
+
 
 /* socket support */
 
