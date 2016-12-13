@@ -3,8 +3,7 @@
 	(spells string-utils)
 	(only (srfi srfi-13) string-index
 	      string-trim-both)
-	;;(srfi srfi-19)
-	(server-lib))
+	)
 
 ;;(load "socket.ss")
 

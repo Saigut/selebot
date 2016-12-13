@@ -1,1 +1,0 @@
-* TODO get-line-bytevector should return eof-object correctly.
