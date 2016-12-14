@@ -522,16 +522,16 @@
 
 ;;; Loop for new connections
 (do () (#f)
-  #|(if (bytes-ready? server-sd 3000000)
+  (if (bytes-ready? server-sd 300000)
       (let ()
 	(printf "there is client come in.~%")
 	(client-sd (accept server-sd)))
       (let ()
 	(printf "no client come in.~%")
 	"else"
-	))|#
+	))
 
-  (client-sd (accept server-sd))
+  ;;(client-sd (accept server-sd))
   
   (if (> (client-sd) 0)
       (let ()
