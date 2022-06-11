@@ -14,38 +14,38 @@
 (define (make-w! socket)
   (lambda (bv start n)
     (let ([sendout (c-write socket bv start n)])
-	  sendout)))
+      sendout)))
 
 (define (make-close socket)
   (lambda ()
     (close socket)
-   ))
+  ))
 
 
 (let ()
   (do ([count 0] [break #f])
-      (break)
+    (break)
 
     (set! client-sd (setup-client-socket "127.0.0.1" 6102))
 
     (if (> client-sd 0)
 
-	(let ()
+      (let ()
 
-	  (set! count (+ count 1))
-	  
-	  (set! b-i/o-port (make-custom-binary-input/output-port "network input port"
-								 (make-r! client-sd)
-								 (make-w! client-sd)
-								 #f
-								 #f
-								 (make-close client-sd)))
-	  
-	  (put-bytevector b-i/o-port (string->bytevector
-				      "GET /abc HTTP/1.1\r\n\r\n"
-				      none-transcoder))
-	  
-	  (get-u8 b-i/o-port)
+        (set! count (+ count 1))
 
-	  (close-port b-i/o-port)
-	  (printf "Closed. ~a~%" count)))))
+        (set! b-i/o-port (make-custom-binary-input/output-port "network input port"
+                           (make-r! client-sd)
+                           (make-w! client-sd)
+                           #f
+                           #f
+                           (make-close client-sd)))
+
+        (put-bytevector b-i/o-port (string->bytevector
+                                     "GET /abc HTTP/1.1\r\n\r\n"
+                                     none-transcoder))
+
+        (get-u8 b-i/o-port)
+
+        (close-port b-i/o-port)
+        (printf "Closed. ~a~%" count)))))
